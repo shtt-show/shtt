@@ -1,105 +1,71 @@
 use anyhow::{Context, Result};
-use git2::{Repository, Status, StatusOptions};
+use git2::{Repository, Status, StatusOptions, ResetType, BranchType};
 use std::fs;
 use std::path::Path;
 
-/// Wipe all git history and tracked files from the current repository
-pub fn wipe_repository(include_untracked: bool) -> Result<()> {
-    // Check if we're in a git repository
+/// Reset repository to match the state of origin/<current_branch>
+pub fn wipe_repository(_include_untracked: bool) -> Result<()> {
     let repo = Repository::open(".")
         .context("Failed to open git repository. Are you in a git repository?")?;
 
-    // Get the repository root path
-    let repo_path = repo.workdir()
-        .context("Failed to get repository working directory")?;
-
-    // Get all tracked files before we remove .git
-    let tracked_files = get_tracked_files(&repo)?;
+    // Get the current branch name
+    let head = repo.head()
+        .context("Failed to get HEAD reference. Make sure you're on a branch.")?;
     
-    // Get untracked files if requested
-    let untracked_files = if include_untracked {
-        get_untracked_files(&repo)?
-    } else {
-        Vec::new()
-    };
+    let current_branch = head.shorthand()
+        .context("Failed to get current branch name")?;
 
-    // Remove all tracked files
-    for file_path in &tracked_files {
-        let full_path = repo_path.join(file_path);
-        if full_path.exists() {
-            if full_path.is_file() {
-                fs::remove_file(&full_path)
-                    .with_context(|| format!("Failed to remove file: {}", file_path))?;
-            } else if full_path.is_dir() {
-                fs::remove_dir_all(&full_path)
-                    .with_context(|| format!("Failed to remove directory: {}", file_path))?;
-            }
-        }
-    }
+    // Find the corresponding remote branch
+    let remote_branch_name = format!("origin/{}", current_branch);
+    let remote_branch = repo.find_branch(&remote_branch_name, BranchType::Remote)
+        .with_context(|| format!("Failed to find remote branch '{}'. Make sure you have fetched from origin.", remote_branch_name))?;
 
-    // Remove untracked files if requested
-    if include_untracked {
-        for file_path in &untracked_files {
-            let full_path = repo_path.join(file_path);
-            if full_path.exists() {
-                if full_path.is_file() {
-                    fs::remove_file(&full_path)
-                        .with_context(|| format!("Failed to remove untracked file: {}", file_path))?;
-                } else if full_path.is_dir() {
-                    fs::remove_dir_all(&full_path)
-                        .with_context(|| format!("Failed to remove untracked directory: {}", file_path))?;
-                }
-            }
-        }
-    }
+    let remote_commit = remote_branch.get().peel_to_commit()
+        .context("Failed to get commit from remote branch")?;
 
-    // Remove .git directory (this removes all git history)
-    let git_dir = repo_path.join(".git");
-    if git_dir.exists() {
-        fs::remove_dir_all(&git_dir)
-            .context("Failed to remove .git directory")?;
-    }
+    // Perform a hard reset to the remote branch commit
+    repo.reset(&remote_commit.as_object(), ResetType::Hard, None)
+        .context("Failed to reset to remote branch")?;
+
+    // Remove all untracked files and directories
+    remove_all_untracked_files(&repo)?;
 
     // Remove empty directories
+    let repo_path = repo.workdir()
+        .context("Failed to get repository working directory")?;
     remove_empty_directories(repo_path)?;
 
     Ok(())
 }
 
-fn get_tracked_files(repo: &Repository) -> Result<Vec<String>> {
-    let mut tracked_files = Vec::new();
-    
-    // Get the index to find all tracked files
-    let index = repo.index()?;
-    
-    for entry in index.iter() {
-        if let Some(path) = std::str::from_utf8(&entry.path).ok() {
-            tracked_files.push(path.to_string());
-        }
-    }
-    
-    Ok(tracked_files)
-}
-
-fn get_untracked_files(repo: &Repository) -> Result<Vec<String>> {
-    let mut untracked_files = Vec::new();
-    
+fn remove_all_untracked_files(repo: &Repository) -> Result<()> {
     let mut opts = StatusOptions::new();
     opts.include_untracked(true);
-    opts.include_ignored(false);
+    opts.include_ignored(false); // Don't remove ignored files
     
     let statuses = repo.statuses(Some(&mut opts))?;
+    let repo_path = repo.workdir()
+        .context("Failed to get repository working directory")?;
     
     for entry in statuses.iter() {
         let status = entry.status();
         if status.contains(Status::WT_NEW) {
             if let Some(path) = entry.path() {
-                untracked_files.push(path.to_string());
+                let full_path = repo_path.join(path);
+                if full_path.exists() {
+                    if full_path.is_file() {
+                        fs::remove_file(&full_path)
+                            .with_context(|| format!("Failed to remove untracked file: {}", path))?;
+                    } else if full_path.is_dir() {
+                        fs::remove_dir_all(&full_path)
+                            .with_context(|| format!("Failed to remove untracked directory: {}", path))?;
+                    }
+                }
             }
         }
     }
     
-    Ok(untracked_files)
+    Ok(())
 }
 
 fn remove_empty_directories(root: &Path) -> Result<()> {
@@ -115,6 +81,12 @@ fn remove_empty_directories(root: &Path) -> Result<()> {
             let path = entry.path();
             
             if path.is_dir() {
+                // Skip .git directory
+                if path.file_name().and_then(|n| n.to_str()) == Some(".git") {
+                    is_empty = false;
+                    continue;
+                }
+                
                 // Recursively check subdirectories
                 if !remove_empty_dirs_recursive(&path, root)? {
                     is_empty = false;

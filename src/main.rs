@@ -18,12 +18,8 @@ struct Cli {
 enum Commands {
     /// List all changes in the current working directory
     Dump,
-    /// Remove everything from the git repository including history (DESTRUCTIVE)
-    Wipe {
-        /// Also remove untracked files (only ignored files will remain)
-        #[arg(short, long)]
-        include_untracked: bool,
-    },
+    /// Reset repository to match origin/<current_branch> and remove all untracked files
+    Wipe,
     /// Save changes by committing and pushing to origin
     Save {
         /// Commit message (if not provided, will prompt for one)
@@ -39,8 +35,8 @@ fn main() -> Result<()> {
         Commands::Dump => {
             dump::dump_changes()?;
         }
-        Commands::Wipe { include_untracked } => {
-            wipe::wipe_repository(include_untracked)?;
+        Commands::Wipe => {
+            wipe::wipe_repository(false)?; // Parameter is ignored now
         }
         Commands::Save { message } => {
             save::save_changes(message)?;
