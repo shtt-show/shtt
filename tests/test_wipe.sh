@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 # Create a temporary directory for the "remote" repo
 REMOTE_DIR=$(mktemp -d)
