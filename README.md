@@ -19,9 +19,9 @@ shtt dump
 
 The output is always in porcelain (machine-readable) format:
 ```
- M src/main.rs
+M src/main.rs
 A  src/new_file.rs
-?? untracked_file.txt
+? untracked_file.txt
 ```
 
 ### Save Command
@@ -60,14 +60,6 @@ Pushed changes to origin/main
 $ shtt save
 No changes to save.
 ```
-
-#### Error Handling
-
-- If not in a git repository: Returns error message "Failed to open git repository. Are you in a git repository?"
-- If git user.name or user.email not configured: Returns helpful error message with configuration commands
-- If no origin remote exists: Returns error message about missing origin remote
-- If push fails due to permissions: Returns error about push access
-- If commit message is empty when prompted: Returns error about empty commit message
 
 ### Wipe Command
 
@@ -114,71 +106,3 @@ Removed all untracked files and directories
 $ git log --oneline origin/main..HEAD
 # (no output - local commits are gone)
 ```
-
-#### Error Handling
-
-- If not in a git repository: Returns error message "Failed to open git repository. Are you in a git repository?"
-- If not on a branch: Returns error message about HEAD reference
-- If no corresponding origin branch exists: Returns error message about missing remote branch
-- If git2 operations fail: Returns appropriate error message with context
-
-#### Build Instructions
-
-```bash
-## Build the project
-cargo build
-
-## Build in release mode
-cargo build --release
-
-## Run directly with cargo
-cargo run -- dump
-cargo run -- save -m "commit message"
-cargo run -- wipe
-```
-
-#### Examples
-
-```bash
-## Show all changes in porcelain format
-$ shtt dump
- M README.md
-?? new_feature.rs
-
-## Save changes
-$ shtt save -m "Update documentation"
-Created commit: 1a2b3c4d5e6f789...
-Pushed changes to origin/main
-
-## Reset to origin state
-$ shtt wipe
-Reset repository to match origin/main
-Removed all untracked files and directories
-
-## No changes after wipe
-$ shtt dump
-No changes detected in the working directory.
-```
-
-#### Status Code Legend
-
-The output uses Git's standard status codes:
-
-- **Index Status** (first character):
-  - `A` = Added to index
-  - `M` = Modified in index  
-  - `D` = Deleted from index
-  - `R` = Renamed in index
-  - `T` = Type changed in index
-  - ` ` = No change in index
-
-- **Working Tree Status** (second character):
-  - `M` = Modified in working tree
-  - `D` = Deleted in working tree
-  - `R` = Renamed in working tree
-  - `T` = Type changed in working tree
-  - `?` = Untracked file
-  - ` ` = No change in working tree
-
-- **Special Cases**:
-  - `??` = Untracked file (both characters)

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -e
 
 # Create a temporary directory for the "remote" repo
 REMOTE_DIR=$(mktemp -d)
@@ -17,12 +17,17 @@ trap cleanup EXIT
 # Set up a "remote" repository
 cd "$REMOTE_DIR"
 git init --bare > /dev/null 2>&1
+# Set the default branch to trunk in the bare repo
+git symbolic-ref HEAD refs/heads/trunk > /dev/null 2>&1
 
 # Set up local repository and push initial state
 cd "$LOCAL_DIR"
 git init > /dev/null 2>&1
 git config user.email "test@example.com"
 git config user.name "Test User"
+# Ensure we're using trunk as the default branch
+git config init.defaultBranch trunk
+git checkout -b trunk > /dev/null 2>&1
 git remote add origin "$REMOTE_DIR"
 
 # Create and commit initial files
@@ -32,9 +37,7 @@ mkdir subdir
 echo "Initial nested" > subdir/file3.txt
 git add .
 git commit -m "Initial commit" > /dev/null 2>&1
-ls -ld "$REMOTE_DIR"
-ls -AhlF "$REMOTE_DIR"
-git push -u origin main > /dev/null 2>&1
+git push -u origin trunk > /dev/null 2>&1
 
 # Make additional commits (these should be wiped)
 echo "Local change 1" > file1.txt
@@ -62,7 +65,7 @@ if [ ! -f "file1.txt" ] || [ ! -f "file2.txt" ] || [ ! -f "subdir/file3.txt" ] |
 fi
 
 # Check that we have local commits ahead of origin
-COMMITS_AHEAD=$(git rev-list --count origin/main..HEAD)
+COMMITS_AHEAD=$(git rev-list --count origin/trunk..HEAD)
 if [ "$COMMITS_AHEAD" -eq "0" ]; then
     echo "ERROR: Expected to have commits ahead of origin"
     exit 1
@@ -71,14 +74,14 @@ fi
 # Run shtt wipe
 "$SHTT_BINARY" wipe
 
-# Check that we're now at the same commit as origin/main
-if ! git diff --quiet origin/main; then
-    echo "ERROR: Repository is not at the same state as origin/main"
+# Check that we're now at the same commit as origin/trunk
+if ! git diff --quiet origin/trunk; then
+    echo "ERROR: Repository is not at the same state as origin/trunk"
     exit 1
 fi
 
 # Check that local commits are gone
-COMMITS_AHEAD_AFTER=$(git rev-list --count origin/main..HEAD)
+COMMITS_AHEAD_AFTER=$(git rev-list --count origin/trunk..HEAD)
 if [ "$COMMITS_AHEAD_AFTER" -ne "0" ]; then
     echo "ERROR: Still have commits ahead of origin after wipe"
     exit 1
