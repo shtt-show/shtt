@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use anyhow::Result;
 
-mod git;
+mod dump;
 
 #[derive(Parser)]
 #[command(name = "shtt")]
@@ -31,7 +31,7 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Dump { modified_only, porcelain } => {
-            git::dump_changes(modified_only, porcelain)?;
+            dump::dump_changes(modified_only, porcelain)?;
         }
     }
 
