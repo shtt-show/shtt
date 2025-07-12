@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use anyhow::Result;
 
 mod dump;
+mod wipe;
 
 #[derive(Parser)]
 #[command(name = "shtt")]
@@ -24,6 +25,12 @@ enum Commands {
         #[arg(short, long)]
         porcelain: bool,
     },
+    /// Remove everything from the git repository including history (DESTRUCTIVE)
+    Wipe {
+        /// Also remove untracked files (only ignored files will remain)
+        #[arg(short, long)]
+        include_untracked: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -32,6 +39,9 @@ fn main() -> Result<()> {
     match cli.command {
         Commands::Dump { modified_only, porcelain } => {
             dump::dump_changes(modified_only, porcelain)?;
+        }
+        Commands::Wipe { include_untracked } => {
+            wipe::wipe_repository(include_untracked)?;
         }
     }
 
