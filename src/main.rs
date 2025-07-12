@@ -4,6 +4,7 @@ use anyhow::Result;
 mod dump;
 mod wipe;
 mod save;
+mod pull;
 
 #[derive(Parser)]
 #[command(name = "shtt")]
@@ -26,6 +27,10 @@ enum Commands {
         #[arg(short, long)]
         message: Option<String>,
     },
+    /// Pull from upstream
+    Pull {
+        remote: Option<String>,
+    }
 }
 
 fn main() -> Result<()> {
@@ -40,6 +45,9 @@ fn main() -> Result<()> {
         }
         Commands::Save { message } => {
             save::save_changes(message)?;
+        }
+        Commands::Pull { remote } => {
+            pull::pull_changes(remote)?;
         }
     }
 
