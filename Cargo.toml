@@ -1,6 +1,6 @@
 [package]
 name = "shtt"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Simple History Tracking Tool"
 license = "MPL-2.0"
