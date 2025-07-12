@@ -21,16 +21,14 @@ git config user.name "Test User"
 # Create an untracked file
 echo "Hello, World!" > test.txt
 
-# Run shtt dump (human-readable format)
+# Run shtt dump (now always porcelain format)
 OUTPUT=$("$SHTT_BINARY" dump)
 
-# Check that output contains human-readable elements
-if echo "$OUTPUT" | grep -q "Changes in current working directory" && \
-   echo "$OUTPUT" | grep -q "Legend:" && \
-   echo "$OUTPUT" | grep -q "test.txt"; then
+# Check that output contains the porcelain format
+if echo "$OUTPUT" | grep -q "? test.txt"; then
     exit 0
 else
-    echo "Expected human-readable format with header, legend, and filename:"
+    echo "Expected porcelain format '? test.txt' in output:"
     echo "$OUTPUT"
     exit 1
 fi

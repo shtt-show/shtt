@@ -17,15 +17,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// List all changes in the current working directory
-    Dump {
-        /// Show only modified files (no untracked files)
-        #[arg(short, long)]
-        modified_only: bool,
-        
-        /// Use porcelain format for machine-readable output
-        #[arg(short, long)]
-        porcelain: bool,
-    },
+    Dump,
     /// Remove everything from the git repository including history (DESTRUCTIVE)
     Wipe {
         /// Also remove untracked files (only ignored files will remain)
@@ -44,8 +36,8 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Dump { modified_only, porcelain } => {
-            dump::dump_changes(modified_only, porcelain)?;
+        Commands::Dump => {
+            dump::dump_changes()?;
         }
         Commands::Wipe { include_untracked } => {
             wipe::wipe_repository(include_untracked)?;

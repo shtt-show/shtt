@@ -6,50 +6,18 @@ Simple History Tracking Tool
 ### Dump Command
 
 The `dump` subcommand lists all changes in the current working
-directory using the native Rust `git2` library.
+directory using the native Rust `git2` library in porcelain format.
 
 #### Basic Usage
 
 ```bash
-## Show all changes (modified + untracked files)
+## Show all changes (modified + untracked files) in porcelain format
 shtt dump
-
-## Show only modified files (exclude untracked)
-shtt dump --modified-only
-
-## Machine-readable output format
-shtt dump --porcelain
 ```
-
-#### Command Options
-
-- `--modified-only` / `-m`: Show only files that have been
-  modified, added, deleted, or renamed. Excludes untracked
-files.
-- `--porcelain` / `-p`: Output in machine-readable format
-  suitable for scripts.
 
 #### Output Format
 
-##### Human-readable format (default):
-```
-Changes in current working directory:
-=====================================
- M  src/main.rs
-A   src/new_file.rs
-??  untracked_file.txt
-
-Legend:
-  M  = Modified
-  A  = Added
-  D  = Deleted
-  R  = Renamed
-  C  = Copied
-  T  = Type changed
-  ?? = Untracked
-```
-
-##### Porcelain format (`--porcelain`):
+The output is always in porcelain (machine-readable) format:
 ```
  M src/main.rs
 A  src/new_file.rs
@@ -137,21 +105,8 @@ cargo run -- wipe
 #### Examples
 
 ```bash
-## Basic usage - show all changes
+## Show all changes in porcelain format
 $ shtt dump
-Changes in current working directory:
-=====================================
- M  README.md
-??  new_feature.rs
-
-## Only modified files
-$ shtt dump --modified-only
-Changes in current working directory:
-=====================================
- M  README.md
-
-## Script-friendly output
-$ shtt dump --porcelain
  M README.md
 ?? new_feature.rs
 

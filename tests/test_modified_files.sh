@@ -26,8 +26,8 @@ git commit -m "Initial commit" > /dev/null 2>&1
 # Modify the file
 echo "Modified content" > test.txt
 
-# Run shtt dump --porcelain
-OUTPUT=$("$SHTT_BINARY" dump --porcelain)
+# Run shtt dump (now always porcelain format)
+OUTPUT=$("$SHTT_BINARY" dump)
 
 # Check that output shows the modified file
 if echo "$OUTPUT" | grep -q " M test.txt"; then

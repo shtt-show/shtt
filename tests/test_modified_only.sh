@@ -29,14 +29,14 @@ echo "Modified content" > committed.txt
 # Create an untracked file
 echo "Untracked content" > untracked.txt
 
-# Run shtt dump --modified-only --porcelain
-OUTPUT=$("$SHTT_BINARY" dump --modified-only --porcelain)
+# Run shtt dump (now always shows all changes including untracked)
+OUTPUT=$("$SHTT_BINARY" dump)
 
-# Check that output shows the modified file but not the untracked file
-if echo "$OUTPUT" | grep -q " M committed.txt" && ! echo "$OUTPUT" | grep -q "untracked.txt"; then
+# Check that output shows both the modified file and the untracked file
+if echo "$OUTPUT" | grep -q " M committed.txt" && echo "$OUTPUT" | grep -q "? untracked.txt"; then
     exit 0
 else
-    echo "Expected to see ' M committed.txt' but not 'untracked.txt' in output:"
+    echo "Expected to see ' M committed.txt' and '? untracked.txt' in output:"
     echo "$OUTPUT"
     exit 1
 fi
