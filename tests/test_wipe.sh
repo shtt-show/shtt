@@ -32,6 +32,8 @@ mkdir subdir
 echo "Initial nested" > subdir/file3.txt
 git add .
 git commit -m "Initial commit" > /dev/null 2>&1
+ls -ld "$REMOTE_DIR"
+ls -AhlF "$REMOTE_DIR"
 git push -u origin main > /dev/null 2>&1
 
 # Make additional commits (these should be wiped)
