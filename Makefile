@@ -13,3 +13,7 @@ big_tests: release
 
 release:
 	cargo build --release
+
+%.tgz: release
+	mv target/release/shtt .
+	tar czf $@ shtt
