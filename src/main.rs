@@ -3,6 +3,7 @@ use anyhow::Result;
 
 mod dump;
 mod wipe;
+mod save;
 
 #[derive(Parser)]
 #[command(name = "shtt")]
@@ -31,6 +32,12 @@ enum Commands {
         #[arg(short, long)]
         include_untracked: bool,
     },
+    /// Save changes by committing and pushing to origin
+    Save {
+        /// Commit message (if not provided, will prompt for one)
+        #[arg(short, long)]
+        message: Option<String>,
+    },
 }
 
 fn main() -> Result<()> {
@@ -42,6 +49,9 @@ fn main() -> Result<()> {
         }
         Commands::Wipe { include_untracked } => {
             wipe::wipe_repository(include_untracked)?;
+        }
+        Commands::Save { message } => {
+            save::save_changes(message)?;
         }
     }
 
