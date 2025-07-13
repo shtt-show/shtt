@@ -90,11 +90,33 @@ fn pull_from_origin(repo: &Repository) -> Result<()> {
         return Ok(());
     }
 
-    // Check if there are local changes
-    let statuses = repo.statuses(None)
+    // Check if there are local changes (only working tree and index changes, not ahead/behind status)
+    let mut opts = git2::StatusOptions::new();
+    opts.include_untracked(true);
+    opts.include_ignored(false);
+    
+    let statuses = repo.statuses(Some(&mut opts))
         .context("Failed to get repository status")?;
 
-    if !statuses.is_empty() {
+    // Check if there are any actual file changes (not just branch status)
+    let has_changes = statuses.iter().any(|entry| {
+        let status = entry.status();
+        // Check for any working tree or index changes
+        status.intersects(
+            git2::Status::INDEX_NEW |
+            git2::Status::INDEX_MODIFIED |
+            git2::Status::INDEX_DELETED |
+            git2::Status::INDEX_RENAMED |
+            git2::Status::INDEX_TYPECHANGE |
+            git2::Status::WT_NEW |
+            git2::Status::WT_MODIFIED |
+            git2::Status::WT_DELETED |
+            git2::Status::WT_RENAMED |
+            git2::Status::WT_TYPECHANGE
+        )
+    });
+
+    if has_changes {
         return Err(anyhow::anyhow!(
             "Cannot pull with uncommitted changes. Please commit or stash your changes first."
         ));
