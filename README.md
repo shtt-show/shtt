@@ -1,5 +1,5 @@
-## shtt
-Simple History Tracking Tool
+# shtt
+*Simple History Tracking Tool*
 
 ## Usage
 
