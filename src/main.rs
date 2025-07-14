@@ -5,6 +5,7 @@ mod dump;
 mod wipe;
 mod save;
 mod pull;
+mod drop;
 
 #[derive(Parser)]
 #[command(name = "shtt")]
@@ -30,7 +31,13 @@ enum Commands {
     /// Pull from upstream
     Pull {
         remote: Option<String>,
-    }
+    },
+    /// Create a new semver tag by incrementing the current highest tag
+    Drop {
+        /// Version bump type: major, minor, or patch
+        #[arg(value_parser = clap::value_parser!(drop::VersionBump))]
+        bump: drop::VersionBump,
+    },
 }
 
 fn main() -> Result<()> {
@@ -48,6 +55,9 @@ fn main() -> Result<()> {
         }
         Commands::Pull { remote } => {
             pull::pull_changes(remote)?;
+        }
+        Commands::Drop { bump } => {
+            drop::drop_tag(bump)?;
         }
     }
 
