@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use git2::{Repository, Signature, IndexAddOption, PushOptions, RemoteCallbacks};
-use std::io::{self, Write};
 
 /// Save changes by committing and pushing to origin
 pub fn save_changes(message: Option<String>) -> Result<()> {
@@ -30,7 +29,10 @@ pub fn save_changes(message: Option<String>) -> Result<()> {
     let commit_message = if let Some(msg) = message {
         msg
     } else {
-        prompt_for_commit_message()?
+        // Count existing commits and generate auto-numbered message
+        let commit_count = count_commits(&repo)?;
+        let next_commit_number = commit_count + 1;
+        format!("{} Commit", format_ordinal(next_commit_number))
     };
 
     // Create commit
@@ -64,6 +66,49 @@ pub fn save_changes(message: Option<String>) -> Result<()> {
     Ok(())
 }
 
+fn format_ordinal(n: usize) -> String {
+    let suffix = match n % 100 {
+        11..=13 => "th", // Special case: 11th, 12th, 13th (not 11st, 12nd, 13rd)
+        _ => match n % 10 {
+            1 => "st",
+            2 => "nd", 
+            3 => "rd",
+            _ => "th",
+        },
+    };
+    format!("{}{}", n, suffix)
+}
+
+fn count_commits(repo: &Repository) -> Result<usize> {
+    // Try to get the current HEAD
+    let head = match repo.head() {
+        Ok(head) => head,
+        Err(_) => {
+            // No HEAD means no commits yet
+            return Ok(0);
+        }
+    };
+
+    // Get the commit that HEAD points to
+    let commit = head.peel_to_commit()
+        .context("Failed to get commit from HEAD")?;
+
+    // Walk through all commits from HEAD to count them
+    let mut revwalk = repo.revwalk()
+        .context("Failed to create revision walker")?;
+    
+    revwalk.push(commit.id())
+        .context("Failed to push HEAD commit to revwalk")?;
+
+    // Count all commits
+    let count = revwalk.count();
+    
+    Ok(count)
+}
+
+// This function is no longer used since we auto-generate commit messages
+// when none are provided, but keeping it commented for reference
+/*
 fn prompt_for_commit_message() -> Result<String> {
     print!("Enter commit message: ");
     io::stdout().flush().context("Failed to flush stdout")?;
@@ -79,6 +124,7 @@ fn prompt_for_commit_message() -> Result<String> {
     
     Ok(message.to_string())
 }
+*/
 
 fn get_signature(repo: &Repository) -> Result<Signature> {
     // Try to get signature from git config

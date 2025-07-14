@@ -33,10 +33,34 @@ OUTPUT=$("$SHTT_BINARY" save --message "Test commit message" 2>&1 || echo "FAILE
 # Check if the command succeeded (we expect it to fail in CI because there's no remote)
 # But we can check that it at least tried to commit
 if echo "$OUTPUT" | grep -q "Created commit:" || echo "$OUTPUT" | grep -q "Failed to find 'origin' remote"; then
-    # Either it succeeded in committing or failed at the push stage (which is expected in tests)
-    exit 0
+    # Verify the commit was actually created by checking git log
+    if git log --oneline | head -1 | grep -q "Test commit message"; then
+        true
+    else
+        echo "✗ Commit with manual message was not found in git log"
+        exit 1
+    fi
 else
-    echo "Expected to see commit creation or origin remote error in output:"
+    echo "✗ Expected to see commit creation or origin remote error in output:"
+    echo "$OUTPUT"
+    exit 1
+fi
+
+# Test save without message (should auto-generate "3rd Commit")
+echo "Another change" > another_file.txt
+OUTPUT=$("$SHTT_BINARY" save 2>&1 || echo "FAILED")
+
+if echo "$OUTPUT" | grep -q "Created commit:" || echo "$OUTPUT" | grep -q "Failed to find 'origin' remote"; then
+    # Verify the commit was created with auto-generated message
+    LAST_COMMIT_MSG=$(git log -1 --pretty=format:%s)
+    if [ "$LAST_COMMIT_MSG" = "3rd Commit" ]; then
+        true
+    else
+        echo "✗ Expected auto-generated '3rd Commit', got: '$LAST_COMMIT_MSG'"
+        exit 1
+    fi
+else
+    echo "✗ Expected to see commit creation or origin remote error in output:"
     echo "$OUTPUT"
     exit 1
 fi
