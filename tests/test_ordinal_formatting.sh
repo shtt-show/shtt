@@ -50,8 +50,6 @@ test_ordinal() {
 test_ordinal "1st" || exit 1
 test_ordinal "2nd" || exit 1  
 test_ordinal "3rd" || exit 1
-
-# Test 4th-10th (all should use "th")
 test_ordinal "4th" || exit 1
 test_ordinal "5th" || exit 1
 test_ordinal "6th" || exit 1
@@ -64,16 +62,15 @@ test_ordinal "10th" || exit 1
 test_ordinal "11th" || exit 1
 test_ordinal "12th" || exit 1
 test_ordinal "13th" || exit 1
-
-# Test that the pattern continues correctly after teens
 test_ordinal "14th" || exit 1
+test_ordinal "15th" || exit 1
+test_ordinal "16th" || exit 1
+test_ordinal "17th" || exit 1
+test_ordinal "18th" || exit 1
+test_ordinal "19th" || exit 1
 
-# Make a few more commits to test 21st, 22nd, 23rd
-for i in {15..20}; do
-    echo "Filler commit $i" > "filler_$i.txt"
-    "$SHTT_BINARY" save > /dev/null 2>&1
-done
-
+# Back to the normal pattern
+test_ordinal "20th" || exit 1
 test_ordinal "21st" || exit 1
 test_ordinal "22nd" || exit 1
 test_ordinal "23rd" || exit 1
