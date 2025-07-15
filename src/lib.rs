@@ -1,19 +1,205 @@
 use anyhow::{Context, Result};
 use git2::{Repository, Signature, PushOptions, RemoteCallbacks, FetchOptions};
+use std::io::{self, Write};
 
 /// Common Git utilities shared across SHTT commands
 pub mod git_utils {
     use super::*;
 
-    /// Create a Git signature from repository configuration
+    /// Setup git configuration interactively if missing
+    pub fn setup_git_config_if_missing(repo: &Repository) -> Result<()> {
+        // Try to get existing config
+        let config = repo.config()
+            .context("Failed to get repository config")?;
+        
+        let mut needs_name = false;
+        let mut needs_email = false;
+        
+        // Check if user.name exists
+        match config.get_string("user.name") {
+            Ok(_) => {}, // Name is set
+            Err(_) => needs_name = true,
+        }
+        
+        // Check if user.email exists
+        match config.get_string("user.email") {
+            Ok(_) => {}, // Email is set
+            Err(_) => needs_email = true,
+        }
+        
+        // If both are set, we're good
+        if !needs_name && !needs_email {
+            return Ok(());
+        }
+        
+        // We need to setup git config
+        println!("Git configuration is not complete. Let's set it up!");
+        println!("This information will be used to identify your commits.\n");
+        
+        // Get the global config file path and open it for writing
+        let mut global_config = open_or_create_global_config()?;
+        
+        if needs_name {
+            let name = prompt_for_name()?;
+            global_config.set_str("user.name", &name)
+                .context("Failed to set user.name in global config")?;
+            println!("✓ Set user.name to: {}", name);
+        }
+        
+        if needs_email {
+            let email = prompt_for_email()?;
+            global_config.set_str("user.email", &email)
+                .context("Failed to set user.email in global config")?;
+            println!("✓ Set user.email to: {}", email);
+        }
+        
+        println!("\nGit configuration complete! 🎉");
+        Ok(())
+    }
+
+    /// Open or create the global git config file
+    fn open_or_create_global_config() -> Result<git2::Config> {
+        // Try to open existing global config
+        match git2::Config::open_default() {
+            Ok(config) => {
+                // Try to get the global level specifically
+                match config.open_level(git2::ConfigLevel::Global) {
+                    Ok(global_config) => Ok(global_config),
+                    Err(_) => {
+                        // Global config doesn't exist, create it
+                        create_global_config()
+                    }
+                }
+            }
+            Err(_) => {
+                // No config exists at all, create global config
+                create_global_config()
+            }
+        }
+    }
+
+    /// Create a new global git config file
+    fn create_global_config() -> Result<git2::Config> {
+        use std::fs;
+        
+        // Get the home directory
+        let home_dir = dirs::home_dir()
+            .context("Could not determine home directory")?;
+        
+        let gitconfig_path = home_dir.join(".gitconfig");
+        
+        // Create the .gitconfig file if it doesn't exist
+        if !gitconfig_path.exists() {
+            fs::File::create(&gitconfig_path)
+                .with_context(|| format!("Failed to create {}", gitconfig_path.display()))?;
+        }
+        
+        // Open the config file
+        git2::Config::open(&gitconfig_path)
+            .with_context(|| format!("Failed to open {}", gitconfig_path.display()))
+    }
+
+    /// Prompt user for their name
+    fn prompt_for_name() -> Result<String> {
+        loop {
+            print!("Enter your full name (e.g., 'John Doe'): ");
+            io::stdout().flush()
+                .context("Failed to flush stdout")?;
+            
+            let mut input = String::new();
+            io::stdin().read_line(&mut input)
+                .context("Failed to read from stdin")?;
+            
+            let name = input.trim().to_string();
+            
+            if name.is_empty() {
+                println!("Name cannot be empty. Please try again.");
+                continue;
+            }
+            
+            if name.len() < 2 {
+                println!("Please enter your full name.");
+                continue;
+            }
+            
+            return Ok(name);
+        }
+    }
+
+    /// Prompt user for their email
+    fn prompt_for_email() -> Result<String> {
+        loop {
+            print!("Enter your email address (e.g., 'john@example.com'): ");
+            io::stdout().flush()
+                .context("Failed to flush stdout")?;
+            
+            let mut input = String::new();
+            io::stdin().read_line(&mut input)
+                .context("Failed to read from stdin")?;
+            
+            let email = input.trim().to_string();
+            
+            if email.is_empty() {
+                println!("Email cannot be empty. Please try again.");
+                continue;
+            }
+            
+            if !is_valid_email(&email) {
+                println!("Please enter a valid email address.");
+                continue;
+            }
+            
+            return Ok(email);
+        }
+    }
+
+    /// Basic email validation
+    fn is_valid_email(email: &str) -> bool {
+        // Check basic requirements
+        if email.len() <= 3 || !email.contains('@') || email.starts_with('@') || email.ends_with('@') {
+            return false;
+        }
+        
+        // Check for invalid patterns
+        if email.contains("..") || email.contains("@@") {
+            return false;
+        }
+        
+        // Split on @ and ensure exactly one @ symbol
+        let parts: Vec<&str> = email.split('@').collect();
+        if parts.len() != 2 {
+            return false;
+        }
+        
+        let (local, domain) = (parts[0], parts[1]);
+        
+        // Local part (before @) validation
+        if local.is_empty() || local.starts_with('.') || local.ends_with('.') {
+            return false;
+        }
+        
+        // Domain part (after @) validation  
+        if domain.is_empty() || domain.starts_with('.') || domain.ends_with('.') || !domain.contains('.') {
+            return false;
+        }
+        
+        // Check allowed characters
+        email.chars().all(|c| c.is_ascii_alphanumeric() || "@.-_+".contains(c))
+    }
+
+    /// Create a Git signature from repository configuration with interactive setup
     pub fn get_signature(repo: &Repository) -> Result<Signature> {
+        // First try to setup config if missing
+        setup_git_config_if_missing(repo)?;
+        
+        // Now get the signature normally
         let config = repo.config()
             .context("Failed to get repository config")?;
         
         let name = config.get_string("user.name")
-            .context("Git user.name not configured. Run: git config user.name \"Your Name\"")?;
+            .context("Git user.name not configured even after setup - this shouldn't happen")?;
         let email = config.get_string("user.email")
-            .context("Git user.email not configured. Run: git config user.email \"your.email@example.com\"")?;
+            .context("Git user.email not configured even after setup - this shouldn't happen")?;
         
         Signature::now(&name, &email)
             .context("Failed to create git signature")
@@ -129,6 +315,38 @@ pub mod git_utils {
         }
         
         Ok(repo_name.to_string())
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        
+        #[test]
+        fn test_email_validation() {
+            // Valid emails
+            assert!(is_valid_email("user@example.com"));
+            assert!(is_valid_email("test.email+tag@example.co.uk"));
+            assert!(is_valid_email("user123@domain-name.org"));
+            assert!(is_valid_email("a@b.co"));
+            assert!(is_valid_email("user_name@example.com"));
+            assert!(is_valid_email("user+tag@example.com"));
+            
+            // Invalid emails
+            assert!(!is_valid_email(""));                    // Empty
+            assert!(!is_valid_email("@"));                   // Just @
+            assert!(!is_valid_email("user@"));              // Missing domain
+            assert!(!is_valid_email("@example.com"));       // Missing local part
+            assert!(!is_valid_email("user@@example.com"));  // Double @
+            assert!(!is_valid_email("user@example@com"));   // Multiple @
+            assert!(!is_valid_email("user..name@example.com")); // Consecutive dots in local
+            assert!(!is_valid_email("user@example..com"));  // Consecutive dots in domain
+            assert!(!is_valid_email(".user@example.com"));  // Leading dot in local
+            assert!(!is_valid_email("user.@example.com"));  // Trailing dot in local
+            assert!(!is_valid_email("user@.example.com"));  // Leading dot in domain
+            assert!(!is_valid_email("user@example.com."));  // Trailing dot in domain
+            assert!(!is_valid_email("user@example"));       // No dot in domain
+            assert!(!is_valid_email("a@b"));                // Domain too short
+        }
     }
 }
 

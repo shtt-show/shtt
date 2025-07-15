@@ -72,7 +72,7 @@ if [ "$COMMITS_AHEAD" -eq "0" ]; then
 fi
 
 # Run shtt wipe
-"$SHTT_BINARY" wipe
+"$SHTT_BINARY" wipe > /dev/null 2>&1
 
 # Check that we're now at the same commit as origin/trunk
 if ! git diff --quiet origin/trunk; then

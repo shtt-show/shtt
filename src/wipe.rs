@@ -2,11 +2,11 @@ use anyhow::{Context, Result};
 use git2::{Repository, Status, StatusOptions, ResetType, BranchType};
 use std::fs;
 use std::path::Path;
+use shtt::git_utils::open_repository;
 
 /// Reset repository to match the state of origin/<current_branch>
 pub fn wipe_repository(_include_untracked: bool) -> Result<()> {
-    let repo = Repository::open(".")
-        .context("Failed to open git repository. Are you in a git repository?")?;
+    let repo = open_repository()?;
 
     // Get the current branch name
     let head = repo.head()
@@ -34,6 +34,9 @@ pub fn wipe_repository(_include_untracked: bool) -> Result<()> {
     let repo_path = repo.workdir()
         .context("Failed to get repository working directory")?;
     remove_empty_directories(repo_path)?;
+
+    println!("Reset repository to match {}", remote_branch_name);
+    println!("Removed all untracked files and directories");
 
     Ok(())
 }

@@ -37,7 +37,7 @@ pub fn save_changes(message: Option<String>) -> Result<()> {
         format!("{} Commit", format_ordinal(next_commit_number))
     };
 
-    // Create commit
+    // Create commit - this will handle interactive git config setup if needed
     let signature = get_signature(&repo)?;
     let tree_id = index.write_tree()
         .context("Failed to write tree")?;

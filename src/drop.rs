@@ -120,7 +120,7 @@ pub fn drop_tag(bump: VersionBump) -> Result<()> {
     let commit = head.peel_to_commit()
         .context("Failed to get HEAD commit")?;
 
-    // Get signature for the tag using refactored function
+    // Get signature for the tag using interactive function
     let signature = get_signature(&repo)?;
 
     // Create the tag
