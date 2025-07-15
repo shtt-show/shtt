@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
-use git2::{Repository, Signature, PushOptions, RemoteCallbacks};
+use git2::Repository;
 use std::cmp::Ordering;
+use shtt::git_utils::{get_signature, push_tag_to_origin, open_repository};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SemVer {
@@ -92,8 +93,7 @@ impl std::str::FromStr for VersionBump {
 
 /// Create a new semver tag by incrementing the current highest tag
 pub fn drop_tag(bump: VersionBump) -> Result<()> {
-    let repo = Repository::open(".")
-        .context("Failed to open git repository. Are you in a git repository?")?;
+    let repo = open_repository()?;
 
     // Get all tags and find the highest semver tag
     let highest_version = get_highest_semver_tag(&repo)?;
@@ -120,7 +120,7 @@ pub fn drop_tag(bump: VersionBump) -> Result<()> {
     let commit = head.peel_to_commit()
         .context("Failed to get HEAD commit")?;
 
-    // Get signature for the tag
+    // Get signature for the tag using refactored function
     let signature = get_signature(&repo)?;
 
     // Create the tag
@@ -135,7 +135,7 @@ pub fn drop_tag(bump: VersionBump) -> Result<()> {
 
     println!("Created tag: {}", new_tag);
     
-    // Push the tag to origin
+    // Push the tag to origin using refactored function
     push_tag_to_origin(&repo, &new_tag)?;
 
     Ok(())
@@ -173,62 +173,6 @@ fn tag_exists(repo: &Repository, tag_name: &str) -> Result<bool> {
         Err(ref e) if e.code() == git2::ErrorCode::NotFound => Ok(false),
         Err(e) => Err(anyhow::anyhow!("Error checking if tag exists: {}", e)),
     }
-}
-
-fn get_signature(repo: &Repository) -> Result<Signature> {
-    // Try to get signature from git config
-    let config = repo.config()
-        .context("Failed to get repository config")?;
-    
-    let name = config.get_string("user.name")
-        .context("Git user.name not configured. Run: git config user.name \"Your Name\"")?;
-    let email = config.get_string("user.email")
-        .context("Git user.email not configured. Run: git config user.email \"your.email@example.com\"")?;
-    
-    Signature::now(&name, &email)
-        .context("Failed to create git signature")
-}
-
-fn push_tag_to_origin(repo: &Repository, tag_name: &str) -> Result<()> {
-    // Find the origin remote
-    let mut remote = repo.find_remote("origin")
-        .context("Failed to find 'origin' remote. Make sure you have an origin remote configured.")?;
-
-    // Set up callbacks for authentication
-    let mut callbacks = RemoteCallbacks::new();
-    callbacks.credentials(|_url, username_from_url, allowed_types| {
-        // Try credential helper first
-        if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT) {
-            if let Ok(cred) = git2::Cred::credential_helper(
-                &git2::Config::open_default().unwrap_or_else(|_| git2::Config::new().unwrap()),
-                _url,
-                username_from_url,
-            ) {
-                return Ok(cred);
-            }
-        }
-        
-        // Try SSH key if available
-        if allowed_types.contains(git2::CredentialType::SSH_KEY) {
-            if let Some(username) = username_from_url {
-                return git2::Cred::ssh_key_from_agent(username);
-            }
-        }
-        
-        // Default credentials
-        git2::Cred::default()
-    });
-
-    let mut push_options = PushOptions::new();
-    push_options.remote_callbacks(callbacks);
-
-    // Push the tag to origin
-    let refspec = format!("refs/tags/{}:refs/tags/{}", tag_name, tag_name);
-    remote.push(&[&refspec], Some(&mut push_options))
-        .with_context(|| format!("Failed to push tag '{}' to origin. Make sure you have push access and the remote is configured correctly.", tag_name))?;
-
-    println!("Pushed tag {} to origin", tag_name);
-    Ok(())
 }
 
 #[cfg(test)]
